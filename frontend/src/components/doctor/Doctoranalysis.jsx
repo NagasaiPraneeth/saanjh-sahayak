@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React,{ useState, useEffect, useRef } from "react";
 import Editsvg from "./Editsvg";
 import { useLocation } from "react-router-dom";
 import axios from "axios";
@@ -31,6 +31,13 @@ export default function Doctoranalysis() {
   const [pdfDocument, setPdfDocument] = useState(null);
   const [scale, setScale] = useState(1);
   const [pic, setPic] = useState('');
+  const [isVisible, setIsVisible] = useState(false);
+  const [loaded, setloaded] = useState(false);
+
+
+  useEffect(() => {
+    setIsVisible(true);
+  }, []);
 
   // useEffect(() => {
   //   const fetchImage = async () => {
@@ -80,7 +87,7 @@ export default function Doctoranalysis() {
 
     const page = await pdfDocument.getPage(1);
     const viewport = page.getViewport({ scale: 1 });
-    const containerWidth = containerRef.current.clientWidth;
+    const containerWidth = containerRef.current.clientWidt
     const containerHeight = containerRef.current.clientHeight;
 
     const widthScale = containerWidth / viewport.width;
@@ -189,11 +196,15 @@ export default function Doctoranalysis() {
 
   async function getUrl() {
     try {
+      setloaded(false);
       const response = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/en/pdfid/${reportData.file}`, { responseType: 'arraybuffer' });
       const binaryData = new Uint8Array(response.data);
       const blob = new Blob([binaryData], { type: 'application/pdf' });
       let url = window.URL.createObjectURL(blob);
-      setUrl(url)
+      setUrl(url);
+      setloaded(true);
+
+
     } catch (error) {
       console.error("Error fetching report:", error);
     }
@@ -201,8 +212,10 @@ export default function Doctoranalysis() {
 
   async function getReport() {
     try {
-      
+      console.log(reportId)
       const response = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/en/getreport/${reportId}`);
+      console.log(response.data)
+      console.log(response.data.image)
       setReportData(response.data);
       setReportPrecautions(response.data.precautions);
       setIsVerify(response.data.isVerified);
@@ -214,6 +227,7 @@ export default function Doctoranalysis() {
 
   async function getDates() {
     try {
+      setloaded(false)
       const response = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/en/getprevreports`, { patientId, reportId });
       setReportsDate(response.data);
     } catch (error) {
@@ -293,13 +307,88 @@ export default function Doctoranalysis() {
     window.scrollTo(0, 0);
   };
 
-  if (!reportData || !reportsDate || !pData) {
-    return <div>Loading...</div>;
+  const containerStyle = {
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "center",
+    alignItems: "center",
+    height: "100vh",
+    backgroundColor: "#f9f9f9",
+    fontFamily: "Arial, sans-serif",
+  };
+
+  const spinnerStyle = {
+    width: "60px",
+    height: "60px",
+    border: "6px solid rgba(0, 0, 0, 0.1)",
+    borderTop: "6px solid #3498db",
+    borderRadius: "50%",
+    animation: "spin 1s linear infinite",
+  };
+
+  const dotsContainerStyle = {
+    display: "flex",
+    gap: "8px",
+    marginTop: "20px",
+  };
+
+  const dotStyle = (delay) => ({
+    width: "12px",
+    height: "12px",
+    backgroundColor: "#3498db",
+    borderRadius: "50%",
+    animation: `bounce 0.6s ease-in-out infinite`,
+    animationDelay: delay,
+  });
+
+  const textStyle = {
+    fontSize: "1.2em",
+    color: "#555",
+    marginTop: "10px",
+  };
+
+  const keyframes = `
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-15px); }
+    }
+  `;
+
+
+  if (!reportData || !reportsDate || !pData || !loaded) {
+    return  <div style={containerStyle}>
+    <style>{keyframes}</style>
+    <div style={dotsContainerStyle}>
+      <div style={dotStyle("0s")}></div>
+      <div style={dotStyle("0.2s")}></div>
+      <div style={dotStyle("0.4s")}></div>
+    </div>
+    <div style={textStyle}>Loading, please wait...</div>
+  </div>
   }
   const handleForumClick = () => {
     navigate('/Forum');  // Add this route in your router
   };
 
+  // 
+  const imagemetrics = reportData.imagemetrics;
+  console.log("imagemetrics : ",imagemetrics);
+  let metrics = [];
+  
+
+  if (imagemetrics && imagemetrics.length > 0) {
+    metrics = imagemetrics.map(metric => {
+      const [label, valueStr] = metric.split(': ');
+      return {
+        label,
+        value: parseFloat(valueStr)
+      };
+    });
+  }
 
   return (
     reportData && reportsDate && pData && url &&(
@@ -453,7 +542,65 @@ export default function Doctoranalysis() {
               <div className="text-lg   tracking-[-0.020em] ">
                 <p className="px-4 pb-2 pt-4">{reportData.summary}</p>
               </div>
-              <img className="profile-picturePC" src={pic} alt="Profile Picture" />
+              <img 
+                className="profile-picturePC" 
+                src={reportData.image || "https://res.cloudinary.com/djlgmbop9/image/upload/v1736072172/ghjs7zxoqmaopzamdztk.jpg"}
+                alt="Profile Picture"
+                style={{ width: '300px', height: 'auto' ,justifyContent:'center',alignItems:'center',margin:'auto'}} 
+              />
+              <div className="w-full max-w-2xl bg-white p-6 rounded-lg shadow-lg" style={{justifyContent:'center',alignItems:'center',margin:'auto'}}>
+                <style>
+                  {`
+                    @keyframes moveGradient {
+                      0% { background-position: 0% 50%; }
+                      50% { background-position: 100% 50%; }
+                      100% { background-position: 0% 50%; }
+                    }
+                    
+                    .animated-bar {
+                      background: linear-gradient(
+                        90deg, 
+                        rgba(37, 99, 235, 1) 0%,
+                        rgba(96, 165, 250, 1) 50%,
+                        rgba(37, 99, 235, 1) 100%
+                      );
+                      background-size: 200% 100%;
+                      animation: moveGradient 2s linear infinite;
+                    }
+                  `}
+                </style>
+                <h2 className="text-xl font-bold mb-4">Brain Scan Analysis Results</h2>
+                <div className="space-y-3">
+                  {metrics && metrics.length > 0 ? metrics.map((metric, index) => (
+                    <div 
+                      key={index} 
+                      className="w-full transform transition-all duration-500 ease-out"
+                      style={{
+                        opacity: isVisible ? 1 : 0,
+                        transform: `translateX(${isVisible ? 0 : -20}px)`,
+                        transition: `all 500ms ${index * 100}ms ease-out`
+                      }}
+                    >
+                      <div className="flex justify-between mb-1">
+                        <span className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors duration-300">
+                          {metric.label}
+                        </span>
+                        <span className="text-sm font-medium text-gray-700">
+                          {(metric.value * 100).toFixed(1)}%
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                        <div
+                          className="h-2 rounded-full transition-all duration-700 ease-out animated-bar"
+                          style={{
+                            width: isVisible ? `${metric.value * 100}%` : '0%'
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )) : "Report Analysis yet to be done"}
+                </div>
+              </div>
               <h3 className="text-[#111418] text-lg font-bold leading-tight tracking-[-0.015em] px-4 pb-2 pt-4">Precautions</h3>
               <div className="p-4 @container">
                 <div
