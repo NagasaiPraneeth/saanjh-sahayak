@@ -30,6 +30,43 @@ function Profile(props) {
   const [pdfName, setPdfName] = useState('');
   const [photo, setPhoto] = useState(null);
 
+  const [image, setImage] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadedImageUrl, setUploadedImageUrl] = useState(null);
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    setImage(file);
+  };
+
+  const uploadToCloudinary = async () => {
+    if (!image) {
+      alert("Please select an image first!");
+      return;
+    }
+
+    setUploading(true);
+
+    const formData = new FormData();
+    formData.append("file", image);
+    formData.append("upload_preset", "saanjh"); // Replace with your upload preset
+    formData.append("cloud_name", "djlgmbop9");
+
+    try {
+      const response = await axios.post(
+        `https://api.cloudinary.com/v1_1/djlgmbop9/image/upload`,
+        formData
+      );
+      setUploadedImageUrl(response.data.secure_url);
+      alert("Image uploaded successfully!");
+    } catch (error) {
+      console.error("Error uploading image: ", error);
+      alert("Failed to upload image.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   useEffect(() => {
     const handleEsc = (event) => {
       if (event.keyCode === 27) handleClose();
@@ -43,6 +80,7 @@ function Profile(props) {
 
   
   function handleImageUpload(event) {
+    console.log(event.target.files[0]);
     const selectedPhoto = event.target.files[0];
     setGeminiImage(selectedPhoto);
 
@@ -51,7 +89,6 @@ function Profile(props) {
         setImagePreviewUrl(url);
         const reader = new FileReader();
         reader.onloadend = () => {
-            // Send both the base64 data and the mime type
             const photoDataUrl = reader.result;
             setPhoto({
                 data: photoDataUrl.split(',')[1],
@@ -128,54 +165,88 @@ function Profile(props) {
     setIsOPen(true);
     console.log(description);
     console.log(wantsDietPlan);
-    if (selectedPdf) {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const fileData = reader.result.split(',')[1];
-        const filename = event.target.value.replace("C:\\fakepath\\", "");
-        try {
-          const reponse = await axios.post(`${import.meta.env.VITE_BACKEND_URL}/en/uploadpdf`, { file: fileData, filename: filename, patientId: patientId, name: patientData.name,photo:photo,mimeType:photo.type});
-          if (reponse.data.data === false) {
+  
+    if (selectedPdf && geminiImage) {
+      try {
+        // Upload image to Cloudinary
+        const imageFormData = new FormData();
+        imageFormData.append("file", geminiImage);
+        imageFormData.append("upload_preset", "saanjh");
+        imageFormData.append("cloud_name", "djlgmbop9");
+  
+        const imageResponse = await axios.post(
+          `https://api.cloudinary.com/v1_1/djlgmbop9/image/upload`,
+          imageFormData
+        );
+  
+        const uploadedImageUrl = imageResponse.data.secure_url;
+        setUploadedImageUrl(uploadedImageUrl);
+        console.log("Image URL:", uploadedImageUrl);
+  
+        // Read the PDF file
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          const fileData = reader.result.split(",")[1];
+          const filename = event.target.value.replace("C:\\fakepath\\", "");
+  
+          try {
+            // Send data to the backend
+            const backendResponse = await axios.post(
+              `${import.meta.env.VITE_BACKEND_URL}/en/uploadpdf`,
+              {
+                file: fileData,
+                filename: filename,
+                patientId: patientId,
+                name: patientData.name,
+                photo: photo,
+                mimeType: photo.type,
+                imageUrl: uploadedImageUrl, // Use the uploaded image URL here
+              }
+            );
+  
+            if (backendResponse.data.data === false) {
+              setIsOPen(false);
+              setIsValid(true);
+              setOpenResult(true);
+            } else {
+              setIsOPen(false);
+              setIsValid(false);
+              setOpenResult(true);
+  
+              if (Notification.permission === "granted") {
+                new Notification("Report Verified", {
+                  body: "The report has been successfully verified.",
+                  icon: "https://via.placeholder.com/50",
+                });
+              }
+  
+              setTimeout(() => window.location.reload(), 1000);
+            }
+          } catch (error) {
+            console.error("Backend Error:", error);
             setIsOPen(false);
-            setIsValid(true);
-            setOpenResult(true);
-          }
-          else {
-            setIsOPen(false);
-            setIsValid(false);
-            setOpenResult(true);
+            alert("File size too large or other issues.");
+  
             if (Notification.permission === "granted") {
-              new Notification("Report Verified", {
-                body: "The report has been successfully verified.",
-                icon: "https://via.placeholder.com/50", // Replace with a relevant icon URL
+              new Notification("Verification Failed", {
+                body: "There was an error verifying the report. Please try again.",
+                icon: "https://via.placeholder.com/50",
               });
             }
-
-            if (Notification.permission === "granted") {
-              new Notification("Report Verified", {
-                body: "The report has been successfully verified.",
-                icon: "https://via.placeholder.com/50", // Replace with a relevant icon URL
-              });
-            }
-            setTimeout(() => window.location.reload(),1000)
           }
-        } catch (error) {
-          setIsOPen(false);
-          alert('File size too large or other issues.');
-
-          if (Notification.permission === "granted") {
-            new Notification("Verification Failed", {
-              body: "There was an error verifying the report. Please try again.",
-              icon: "https://via.placeholder.com/50", // Replace with a relevant icon URL
-            });
-          }
-        }
-      };
-      reader.readAsDataURL(selectedPdf);
+        };
+  
+        reader.readAsDataURL(selectedPdf);
+      } catch (error) {
+        console.error("Error uploading image:", error);
+        setIsOPen(false);
+        alert("Image upload failed. Please try again.");
+      }
     } else {
       console.log("No input file");
     }
   };
+  
 
 
   const handlePatient = async (id) => {
@@ -370,6 +441,7 @@ function Profile(props) {
                         </label>
                       </div>
                     </div>
+
 
                     {imagePreviewUrl && (
                       <div className="mt-4">
