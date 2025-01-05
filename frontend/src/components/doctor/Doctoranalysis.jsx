@@ -569,7 +569,7 @@ export default function Doctoranalysis() {
                     }
                   `}
                 </style>
-                <h2 className="text-xl font-bold mb-4">Brain Scan Analysis Results</h2>
+                <h2 className="text-xl font-bold mb-4">Analysis Results</h2>
                 <div className="space-y-3">
                   {metrics && metrics.length > 0 ? metrics.map((metric, index) => (
                     <div 
