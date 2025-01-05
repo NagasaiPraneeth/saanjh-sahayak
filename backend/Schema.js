@@ -39,7 +39,7 @@ reportSchema = new mongoose.Schema({
     doctorNotes: String,//prescribtion
     periodicAnalysis:String,
     isVerified:Boolean,
-    image:ObjectId,
+    image:String,
     imagemetrics:Object,
     imageAnalysis:String,
     Diet : Object
