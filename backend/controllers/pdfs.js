@@ -43,7 +43,8 @@ const uploadpdf = async (req, res) => {
         if (!db) {
             throw new Error('MongoDB connection not established.');
         }
-        const { file, filename, patientId, name, photo, mimeType } = req.body;
+        const { file, filename, patientId, name, photo, mimeType,imageUrl } = req.body;
+        console.log("image:"+imageUrl)
         const convertToBase64 = (file) => {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -111,7 +112,8 @@ const uploadpdf = async (req, res) => {
                 const response = await axios.post(`http://localhost:5001/en/uploadXray`, { photo: photo.data })
                 console.log(response.data.data);
                 const a = await report.findOne({ _id: reportId });
-                a.image = response.data.data;
+                a.image = imageUrl;
+                await a.save();
                 const getSelectedImageType = (parameters) => {
                     const typeOfImage = parameters.typeofImage;
                     
@@ -125,23 +127,20 @@ const uploadpdf = async (req, res) => {
                 const photoData = photo.data instanceof Blob || photo.data instanceof File
                     ? await convertToBase64(photo.data)
                     : photo.data;
-                    const selectedType = getSelectedImageType(parameters);
-                    // const responseImage = await axios.post('https://fe95-34-23-82-96.ngrok-free.app/getImage', {
-                    //     photo: photoData,
-                    //     imageType:selectedType,
-                    //   }, {
-                    //     headers: {
-                    //       'Content-Type': 'application/json'
-                    //     }
-                    //   });
-                    //   const metrics=responseImage.data.metrics;
-                    //   const imageAnalysis=responseImage.data.analysis;
-                    //   console.log(typeof(metrics))
-                    //   a.imagemetrics=metrics;
-                    //   a.imageAnalysis=imageAnalysis
-                    //   a.save();
 
-                      
+                    const selectedType = getSelectedImageType(parameters);
+                    const responseImage = await axios.post('https://2774-35-185-204-75.ngrok-free.app/getImage', {
+                        photo: photoData,
+                        imageType:selectedType,
+                      }, {
+                        headers: {
+                          'Content-Type': 'application/json'
+                        }
+                      });
+                      const metrics=responseImage.data.metrics;
+                      console.log(typeof(metrics))
+                      a.imagemetrics=metrics;
+                      a.save();                      
             }
         }
         return res.json({ data: true });
